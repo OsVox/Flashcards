@@ -1,0 +1,201 @@
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine, Column, Integer, String, inspect
+
+
+Base = declarative_base()
+
+
+class Flashcards(Base):
+    __tablename__ = 'flashcards'
+
+    box_name = Column(Integer)
+    id = Column(Integer, primary_key=True, nullable=False)
+    question = Column(String(100), nullable=False)
+    answer = Column(String(100))
+
+    def __repr__(self):
+        return f'{id}, {self.question}, {self.answer}'
+
+    def __gt__(self, other):
+        return self.id > other.id
+
+
+engine = create_engine('sqlite:///flashcard.db', echo=False)
+Base.metadata.create_all(engine)  # Create table in database; we created CLASS with inheritance from Base
+
+connection = engine.connect()
+
+inspector = inspect(engine)
+
+Session = sessionmaker(bind=engine)
+session = Session()
+
+
+def learning_menu(key):
+    print('press "y" if your answer is correct:')
+    print('press "n" if your answer is wrong:')
+    answer_5 = input()
+    print()
+    print()
+    row = session.query(Flashcards).filter(Flashcards.id == key)
+    if answer_5 == 'y':
+        if row[0].box_name == 3:
+            delete_data(key)
+        else:
+            row[0].box_name += 1
+    elif answer_5 == 'n':
+        if row[0].box_name != 1:
+            row[0].box_name = 1
+    else:
+        print(answer_5, 'is not an option')
+
+
+def add_data(idd: int, question: str, answer: str):
+
+    new_data = Flashcards(box_name=1, id=idd, question=question, answer=answer)
+    session.add(new_data)
+    session.commit()
+
+
+def delete_data(row):  # ROW IS AN ID
+
+    entries = session.query(Flashcards).filter(Flashcards.id == row)
+    session.delete(entries[0])
+    session.commit()
+
+
+def change_answer(key, data):
+
+    entries = session.query(Flashcards).filter(Flashcards.id == key)
+    entries[0].answer = data
+    session.commit()
+
+
+def change_question(key, data):
+
+    entries = session.query(Flashcards).filter(Flashcards.id == key)
+    entries[0].question = data
+    session.commit()
+
+
+def main_menu():
+
+    print('1. Add flashcards')
+    print('2. Practice flashcards')
+    print('3. Exit')
+
+    click_1 = input()
+    if click_1 == '1':
+        print()
+        add_flashcards()
+    elif click_1 == '2':
+        print()
+        practice_flashcards()
+    elif click_1 == '3':
+        print()
+        print('Bye!')
+    else:
+        print()
+        print(click_1, 'is not an option')
+        print()
+        main_menu()
+
+
+def print_question():
+    print('Question:')
+    question = input()
+    if question != '' and question != ' ':
+        return question
+    else:
+        return print_question()
+
+
+def print_answers():
+    print('Answer:')
+    answer = input()
+    if answer != '' and answer != ' ':
+        return answer
+    else:
+        return print_answers()
+
+
+def add_flashcards():
+    print('1. Add a new flashcard')
+    print('2. Exit')
+
+    click_2 = input()
+    print()
+
+    if click_2 == '2':
+        main_menu()
+    elif click_2 == '1':
+        ques = print_question()
+        answ = print_answers()
+        entries = session.query(Flashcards).all()
+        try:
+            maximum = max(entries).id + 1
+        except ValueError:
+            maximum = 1
+        add_data(idd=maximum, question=ques, answer=answ)
+        print()
+
+        add_flashcards()
+    else:
+        print(click_2, 'is not an option')
+        add_flashcards()
+
+
+def practice_flashcards():
+    result_list = session.query(Flashcards).all()
+    if len(session.query(Flashcards).all()) == 0:
+        print('There is no flashcard to practice!')
+        print()
+        main_menu()
+    else:
+        for key in result_list:
+            identificator = key.id
+            print('Question: ' + key.question + ':')
+            print('press "y" to see the answer:')
+            print('press "n" to skip:')
+            print('press "u" to update:')
+            answer_3 = input()
+            if answer_3 == 'n':
+                print()
+                print()
+                continue
+            elif answer_3 == 'y':
+                print()
+                print('Answer: ' + key.answer)
+                learning_menu(key.id)
+                continue
+            elif answer_3 == 'u':
+                print('press "d" to delete the flashcard:')
+                print('press "e" to edit the flashcard:')
+                answer_4 = input()
+                print()
+                if answer_4 == 'e':
+                    print(f'current question: {key.question}')
+                    print('please write a new question:')
+                    new_question = input()
+                    change_question(identificator, new_question)
+                    print()
+                    print(f'current answer: {key.answer}')
+                    print('please write a new answer:')
+                    new_answer = input()
+                    change_answer(identificator, new_answer)
+                    print()
+                    continue
+                elif answer_4 == 'd':
+                    delete_data(identificator)
+                    continue
+                else:
+                    print(answer_4, 'is not an option')
+            else:
+                print(answer_3, 'is not an option')
+                practice_flashcards()
+
+    main_menu()
+
+
+main_menu()
